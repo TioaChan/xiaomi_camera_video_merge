@@ -88,7 +88,7 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
         if not Path(merge_outdir).exists():
             Path(merge_outdir).mkdir(parents=True)
 
-        vidslist_path = f"{merge_outdir}/vidslist.txt"
+        vidslist_path = f"{merge_outdir}/{ds_date}_vidslist.txt"
 
         Path(vidslist_path).write_text("\n".join(videos), encoding="utf8")
         merge_vids(vidslist_path, Path(merge_outdir).joinpath(f"{ds_date}.mp4"))
