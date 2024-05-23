@@ -52,7 +52,7 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
         return
     # 小米第一代文件目录有多层
     for d in Path(indir).iterdir():
-        if d.is_file():
+        if d.is_file() and d.name != '.DS_Store':
             # 兼容一级目录是视频文件
             date_dict[date_name] = [Path(indir)]
             break
