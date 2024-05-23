@@ -1,6 +1,7 @@
 import argparse
 import os
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
@@ -43,6 +44,9 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
 
     date_dict = {}
 
+    current_date = datetime.now().strftime('%Y%m%d')
+    date_dict[current_date] = []
+
     if Path(indir).is_file():
         print("indir is file:", indir)
         return
@@ -58,6 +62,9 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
         if date not in date_dict:
             date_dict[date] = []
         date_dict[date].append(d)
+
+    if current_date in date_dict:
+        date_dict.pop(current_date)
 
     for ds_date, ds in date_dict.items():
         videos = []
