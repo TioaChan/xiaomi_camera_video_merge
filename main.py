@@ -103,4 +103,6 @@ def startup(indir: str, outdir: str):
 
 
 if __name__ == "__main__":
+    print(args.indir)
+    print(args.outdir)
     startup(args.indir, args.outdir)
