@@ -1,5 +1,6 @@
 import argparse
 import os
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -18,15 +19,31 @@ def merge_vids(vidlist_file: str, tofile: str):
     # Could not find tag for codec pcm_alaw in stream #1, codec not currently supported in container when concatenating 2 files using ffmpeg
     # ffmpeg -y overwrite
     if platform.system().lower() == "windows":
-        cmd = f"ffmpeg -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a flac -strict -2 {tofile}"
+        cmd = f"ffmpeg -loglevel quiet -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a flac -strict -2 {tofile}"
         subprocess.run(cmd)
     else:
-        cmd = f"ffmpeg -y -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a aac -strict -2 {tofile}"
-        subprocess.run(cmd,shell=True)
+        cmd = f"ffmpeg -loglevel quiet -y -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a aac -strict -2 {tofile}"
+        subprocess.run(cmd, shell=True)
+
+    with open(vidlist_file, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            video_path = line.strip().replace("file ", "")
+            parent_path = Path(video_path).parent
+            if parent_path.exists():
+                logger.info(f"{parent_path} will be removed.")
+                shutil.rmtree(parent_path, ignore_errors=True)
+    f.close()
+    logger.info(f"{vidlist_file} will be removed.")
+    os.remove(vidlist_file)
+
+
 
 def has_subdirectories(directory):
     subdirectories = [item for item in os.listdir(directory) if os.path.isdir(os.path.join(directory, item))]
     return bool(subdirectories)
+
+
 def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
     """合并目录下的监控文件，在当前目录生成以天为单位的视频。
     indir 结构：
@@ -71,7 +88,7 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
             mp4_list = list(Path(d).glob("*.mp4"))
             videos.extend(mp4_list)
 
-        print("data_dict:",d,has_subdirectories(Path(d)))
+        print("data_dict:", d, has_subdirectories(Path(d)))
         if len(videos) == 0 and Path(d).is_dir() and has_subdirectories(Path(d)):
             # 往下层递归
             merge_dirs(Path(d), outdir, date_name, ds_date)
