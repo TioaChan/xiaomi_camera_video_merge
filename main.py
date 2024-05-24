@@ -68,7 +68,7 @@ def merge_dirs(in_dir: Path, output_dir: Path, date_name: str, parent_path: str)
         return
     # 小米第一代文件目录有多层
     for d in Path(in_dir).iterdir():
-        if d.is_file():
+        if d.is_file() and d.name != '.DS_Store' and d.name != '@eaDir':
             # 兼容一级目录是视频文件
             date_dict[date_name] = [Path(in_dir)]
             break
@@ -88,7 +88,9 @@ def merge_dirs(in_dir: Path, output_dir: Path, date_name: str, parent_path: str)
             mp4_list = list(Path(d).glob("*.mp4"))
             videos.extend(mp4_list)
 
-        print("data_dict:", d, has_subdirectories(Path(d)))
+        # print("data_dict:", d, has_subdirectories(Path(d)))
+        logger.info(f"date_dict:{d}, {has_subdirectories(Path(d))}")
+
         if len(videos) == 0 and Path(d).is_dir() and has_subdirectories(Path(d)):
             # 往下层递归
             merge_dirs(Path(d), output_dir, date_name, ds_date)
