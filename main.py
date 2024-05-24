@@ -12,19 +12,18 @@ parser = argparse.ArgumentParser(description='合并米家摄像头视频，以�
 parser.add_argument('indir', help='原米家摄像头视频目录。')
 parser.add_argument('--outdir', default='./', help='合并后视频存放目录，目录不存在会被创建。默认当前目录。')
 args = parser.parse_args()
-skip_filenames = [".DS_Store", "@eaDir"]
 
 
-def merge_vids(vidlist_file: str, tofile: str):
+def merge_videos(vidlist_file: Path, target_file: Path):
     """执行 ffmpeg 命令合并视频。"""
     # 需要对音频重新编码，否则会报错：
     # Could not find tag for codec pcm_alaw in stream #1, codec not currently supported in container when concatenating 2 files using ffmpeg
     # ffmpeg -y overwrite
     if platform.system().lower() == "windows":
-        cmd = f"ffmpeg -loglevel quiet -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a flac -strict -2 {tofile}"
+        cmd = f"ffmpeg -loglevel quiet -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a flac -strict -2 {target_file}"
         subprocess.run(cmd)
     else:
-        cmd = f"ffmpeg -loglevel quiet -y -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a aac -strict -2 {tofile}"
+        cmd = f"ffmpeg -loglevel quiet -y -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a aac -strict -2 {target_file}"
         subprocess.run(cmd, shell=True)
 
     with open(vidlist_file, 'r') as f:
@@ -45,7 +44,7 @@ def has_subdirectories(directory):
     return bool(subdirectories)
 
 
-def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
+def merge_dirs(in_dir: Path, output_dir: Path, date_name: str, parent_path: str):
     """合并目录下的监控文件，在当前目录生成以天为单位的视频。
     indir 结构：
     indir
@@ -55,23 +54,23 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
         ...
     即，子目录结构为：年月日时。
     """
-    if not Path(outdir).exists():
-        logger.info(f'{outdir} 不存在，即将被创建')
-        Path(outdir).mkdir(parents=True)
+    if not Path(output_dir).exists():
+        logger.info(f'{output_dir} 不存在，即将被创建')
+        Path(output_dir).mkdir(parents=True)
 
     date_dict = {}
 
     current_date = datetime.now().strftime('%Y%m%d')
     date_dict[current_date] = []
 
-    if Path(indir).is_file():
-        print("indir is file:", indir)
+    if Path(in_dir).is_file():
+        logger.error(f"{in_dir} is not a directory.")
         return
     # 小米第一代文件目录有多层
-    for d in Path(indir).iterdir():
+    for d in Path(in_dir).iterdir():
         if d.is_file():
             # 兼容一级目录是视频文件
-            date_dict[date_name] = [Path(indir)]
+            date_dict[date_name] = [Path(in_dir)]
             break
         if not d.is_dir():
             continue
@@ -92,30 +91,28 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
         print("data_dict:", d, has_subdirectories(Path(d)))
         if len(videos) == 0 and Path(d).is_dir() and has_subdirectories(Path(d)):
             # 往下层递归
-            merge_dirs(Path(d), outdir, date_name, ds_date)
+            merge_dirs(Path(d), output_dir, date_name, ds_date)
         logger.info(f"{ds_date}, {len(videos)} videos")
         if not videos:
             continue
         videos = sorted(videos, key=lambda f: int(f.stem.split("_")[-1]))
         videos = ["file " + str(f.resolve(strict=True)).replace("\\", "/") for f in videos]
 
-        merge_outdir = f'{outdir}/{date_name}/{parent_path}'
-        if not Path(merge_outdir).exists():
-            Path(merge_outdir).mkdir(parents=True)
+        merge_output_dir = f'{output_dir}/{date_name}/{parent_path}'
+        if not Path(merge_output_dir).exists():
+            Path(merge_output_dir).mkdir(parents=True)
 
-        vidslist_path = f"{merge_outdir}/{ds_date}_vidslist.txt"
+        video_list_path = f"{merge_output_dir}/{ds_date}_video_list.txt"
 
-        Path(vidslist_path).write_text("\n".join(videos), encoding="utf8")
-        merge_vids(vidslist_path, Path(merge_outdir).joinpath(f"{ds_date}.mp4"))
+        Path(video_list_path).write_text("\n".join(videos), encoding="utf8")
+        merge_videos(Path(video_list_path), Path(merge_output_dir).joinpath(f"{ds_date}.mp4"))
 
 
-def startup(indir: str, outdir: str):
-    for date in Path(indir).iterdir():
-        date_name = Path(date).name
-        if date_name in skip_filenames:
-            continue
-        print(f"start merge:{date_name} video")
-        merge_dirs(Path(date), outdir, date_name, "")
+def startup(input_dir: str, output_dir: str):
+    for item in Path(input_dir).iterdir():
+        if item.name != '.DS_Store' and item.name != '@eaDir':
+            logger.info(f"start merge {item.name} video")
+            merge_dirs(Path(item), Path(output_dir), item.name, "")
 
 
 if __name__ == "__main__":
