@@ -11,7 +11,8 @@ parser = argparse.ArgumentParser(description='合并米家摄像头视频，以�
 parser.add_argument('indir', help='原米家摄像头视频目录。')
 parser.add_argument('--outdir', default='./', help='合并后视频存放目录，目录不存在会被创建。默认当前目录。')
 args = parser.parse_args()
-skip_filenames = []
+skip_filenames = [".DS_Store", "@eaDir"]
+
 
 def merge_vids(vidlist_file: str, tofile: str):
     """执行 ffmpeg 命令合并视频。"""
@@ -36,7 +37,6 @@ def merge_vids(vidlist_file: str, tofile: str):
     f.close()
     logger.info(f"{vidlist_file} will be removed.")
     os.remove(vidlist_file)
-
 
 
 def has_subdirectories(directory):
@@ -68,7 +68,7 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
         return
     # 小米第一代文件目录有多层
     for d in Path(indir).iterdir():
-        if d.is_file() and d.name != '.DS_Store':
+        if d.is_file():
             # 兼容一级目录是视频文件
             date_dict[date_name] = [Path(indir)]
             break
@@ -120,6 +120,5 @@ def startup(indir: str, outdir: str):
 
 
 if __name__ == "__main__":
-    print(args.indir)
-    print(args.outdir)
+    logger.info(f"current time {datetime.now()},source dir : {args.indir}, target dir: {args.outdir}")
     startup(args.indir, args.outdir)
