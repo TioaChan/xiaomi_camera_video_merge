@@ -1,11 +1,12 @@
 import argparse
 import os
+import platform
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
+
 from loguru import logger
-import platform
 
 parser = argparse.ArgumentParser(description='合并米家摄像头视频，以天为单位。')
 parser.add_argument('indir', help='原米家摄像头视频目录。')
@@ -96,9 +97,7 @@ def merge_dirs(indir: str, outdir: str, date_name: str, parent_path: str):
         if not videos:
             continue
         videos = sorted(videos, key=lambda f: int(f.stem.split("_")[-1]))
-        videos = [
-            "file " + str(f.resolve(strict=True)).replace("\\", "/") for f in videos
-        ]
+        videos = ["file " + str(f.resolve(strict=True)).replace("\\", "/") for f in videos]
 
         merge_outdir = f'{outdir}/{date_name}/{parent_path}'
         if not Path(merge_outdir).exists():
