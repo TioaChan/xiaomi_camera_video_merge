@@ -29,8 +29,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-ENV inputdir=""
-ENV outputdir=""
+ENV inputdir="/input"
+ENV outputdir="/output"
+
+VOLUME ["/input", "/output"]
 
 COPY entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/entrypoint.sh
