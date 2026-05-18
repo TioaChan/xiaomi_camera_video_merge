@@ -15,17 +15,23 @@ args = parser.parse_args()
 
 
 def get_total_duration(vidlist_file: Path) -> float:
-    """获取视频列表的总时长（秒）。使用 concat 格式一次调用 ffprobe 获取总时长。"""
-    try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "error", "-f", "concat", "-safe", "0",
-             "-i", str(vidlist_file), "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1"],
-            capture_output=True, text=True
-        )
-        return float(result.stdout.strip())
-    except Exception:
-        return 0.0
+    """获取视频列表的总时长（秒）。"""
+    total = 0.0
+    with open(vidlist_file, 'r', encoding='utf8') as f:
+        for line in f:
+            path = line.strip().replace("file ", "", 1)
+            if not path:
+                continue
+            try:
+                result = subprocess.run(
+                    ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                     "-of", "default=noprint_wrappers=1:nokey=1", path],
+                    capture_output=True, text=True
+                )
+                total += float(result.stdout.strip())
+            except Exception:
+                pass
+    return total
 
 
 def merge_videos(vidlist_file: Path, target_file: Path):
@@ -115,7 +121,9 @@ def merge_dirs(in_dir: Path, output_dir: Path, date_name: str, parent_path: str)
     if current_date in date_dict:
         date_dict.pop(current_date)
 
-    for ds_date, ds in date_dict.items():
+    date_items = list(date_dict.items())
+    date_total = len(date_items)
+    for date_idx, (ds_date, ds) in enumerate(date_items, start=1):
         videos = []
         for d in ds:
             mp4_list = list(Path(d).glob("*.mp4"))
@@ -127,7 +135,8 @@ def merge_dirs(in_dir: Path, output_dir: Path, date_name: str, parent_path: str)
         if len(videos) == 0 and Path(d).is_dir() and has_subdirectories(Path(d)):
             # 往下层递归
             merge_dirs(Path(d), output_dir, date_name, ds_date)
-        logger.info(f"{ds_date}, {len(videos)} videos")
+        date_percent = date_idx / date_total * 100
+        logger.info(f"[{date_idx}/{date_total} {date_percent:.1f}%] {ds_date}, {len(videos)} videos")
         if not videos:
             continue
         videos = sorted(videos, key=lambda f: int(f.stem.split("_")[-1]))
