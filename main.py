@@ -14,56 +14,17 @@ parser.add_argument('--outdir', default='./', help='合并后视频存放目录�
 args = parser.parse_args()
 
 
-def get_total_duration(vidlist_file: Path) -> float:
-    """获取视频列表的总时长（秒）。"""
-    total = 0.0
-    with open(vidlist_file, 'r', encoding='utf8') as f:
-        for line in f:
-            path = line.strip().replace("file ", "", 1)
-            if not path:
-                continue
-            try:
-                result = subprocess.run(
-                    ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                     "-of", "default=noprint_wrappers=1:nokey=1", path],
-                    capture_output=True, text=True
-                )
-                total += float(result.stdout.strip())
-            except Exception:
-                pass
-    return total
-
-
 def merge_videos(vidlist_file: Path, target_file: Path):
     """执行 ffmpeg 命令合并视频。"""
     # 需要对音频重新编码，否则会报错：
     # Could not find tag for codec pcm_alaw in stream #1, codec not currently supported in container when concatenating 2 files using ffmpeg
-    total_duration = get_total_duration(vidlist_file)
-
-    base_cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
-                "-i", str(vidlist_file), "-c:v", "copy",
-                "-progress", "pipe:1", "-nostats"]
+    # ffmpeg -y overwrite
     if platform.system().lower() == "windows":
-        cmd = base_cmd + ["-c:a", "flac", "-strict", "-2", str(target_file)]
+        cmd = f"ffmpeg -loglevel quiet -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a flac -strict -2 {target_file}"
+        subprocess.run(cmd)
     else:
-        cmd = base_cmd + ["-c:a", "aac", "-strict", "-2", str(target_file)]
-
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-    last_logged = -1
-    for line in proc.stdout:
-        if line.startswith("out_time_ms="):
-            try:
-                out_time_s = int(line.split("=")[1]) / 1_000_000
-                if total_duration > 0:
-                    percent = min(out_time_s / total_duration * 100, 100)
-                    step = int(percent // 10) * 10
-                    if step > last_logged:
-                        last_logged = step
-                        logger.info(f"  合并进度: {percent:.1f}%")
-            except Exception:
-                pass
-    proc.wait()
-    logger.info(f"  合并进度: 100%")
+        cmd = f"ffmpeg -loglevel quiet -y -f concat -safe 0 -i {vidlist_file} -c:v copy -c:a aac -strict -2 {target_file}"
+        subprocess.run(cmd, shell=True)
 
     with open(vidlist_file, 'r') as f:
         lines = f.readlines()
@@ -121,9 +82,7 @@ def merge_dirs(in_dir: Path, output_dir: Path, date_name: str, parent_path: str)
     if current_date in date_dict:
         date_dict.pop(current_date)
 
-    date_items = list(date_dict.items())
-    date_total = len(date_items)
-    for date_idx, (ds_date, ds) in enumerate(date_items, start=1):
+    for ds_date, ds in date_dict.items():
         videos = []
         for d in ds:
             mp4_list = list(Path(d).glob("*.mp4"))
@@ -135,8 +94,7 @@ def merge_dirs(in_dir: Path, output_dir: Path, date_name: str, parent_path: str)
         if len(videos) == 0 and Path(d).is_dir() and has_subdirectories(Path(d)):
             # 往下层递归
             merge_dirs(Path(d), output_dir, date_name, ds_date)
-        date_percent = date_idx / date_total * 100
-        logger.info(f"[{date_idx}/{date_total} {date_percent:.1f}%] {ds_date}, {len(videos)} videos")
+        logger.info(f"{ds_date}, {len(videos)} videos")
         if not videos:
             continue
         videos = sorted(videos, key=lambda f: int(f.stem.split("_")[-1]))
@@ -153,13 +111,10 @@ def merge_dirs(in_dir: Path, output_dir: Path, date_name: str, parent_path: str)
 
 
 def startup(input_dir: str, output_dir: str):
-    items = [item for item in Path(input_dir).iterdir()
-             if item.name != '.DS_Store' and item.name != '@eaDir']
-    total = len(items)
-    for idx, item in enumerate(items, start=1):
-        percent = idx / total * 100
-        logger.info(f"[{idx}/{total} {percent:.1f}%] start merge {item.name} video")
-        merge_dirs(Path(item), Path(output_dir), item.name, "")
+    for item in Path(input_dir).iterdir():
+        if item.name != '.DS_Store' and item.name != '@eaDir':
+            logger.info(f"start merge {item.name} video")
+            merge_dirs(Path(item), Path(output_dir), item.name, "")
 
 
 if __name__ == "__main__":
