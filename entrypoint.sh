@@ -1,3 +1,5 @@
 #!/bin/sh
 
-python main.py --outdir "$outputdir" "$inputdir"
+set -e
+
+exec python /app/main.py --outdir "$outputdir" "$inputdir" "$@"
